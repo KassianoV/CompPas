@@ -1,0 +1,111 @@
+{
+  "type": "Program",
+  "name": "exemplo1",
+  "var_decls": [
+    {
+      "type": "VarDecl",
+      "names": [
+        "x",
+        "y",
+        "z"
+      ],
+      "type_name": "integer"
+    }
+  ],
+  "block": {
+    "type": "Compound",
+    "statements": [
+      {
+        "type": "Call",
+        "name": "read",
+        "args": [
+          {
+            "type": "Var",
+            "name": "x"
+          }
+        ]
+      },
+      {
+        "type": "Assign",
+        "target": {
+          "type": "Var",
+          "name": "y"
+        },
+        "value": {
+          "type": "BinOp",
+          "op": "+",
+          "left": {
+            "type": "Var",
+            "name": "x"
+          },
+          "right": {
+            "type": "BinOp",
+            "op": "*",
+            "left": {
+              "type": "Num",
+              "value": 2
+            },
+            "right": {
+              "type": "Num",
+              "value": 3
+            }
+          }
+        }
+      },
+      {
+        "type": "If",
+        "condition": {
+          "type": "BinOp",
+          "op": ">",
+          "left": {
+            "type": "Var",
+            "name": "y"
+          },
+          "right": {
+            "type": "Num",
+            "value": 5
+          }
+        },
+        "then_branch": {
+          "type": "Call",
+          "name": "write",
+          "args": [
+            {
+              "type": "Var",
+              "name": "y"
+            }
+          ]
+        },
+        "else_branch": {
+          "type": "Call",
+          "name": "write",
+          "args": [
+            {
+              "type": "Num",
+              "value": 0
+            }
+          ]
+        }
+      },
+      {
+        "type": "Assign",
+        "target": {
+          "type": "Var",
+          "name": "z"
+        },
+        "value": {
+          "type": "BinOp",
+          "op": "-",
+          "left": {
+            "type": "Var",
+            "name": "y"
+          },
+          "right": {
+            "type": "Num",
+            "value": 1
+          }
+        }
+      }
+    ]
+  }
+}
