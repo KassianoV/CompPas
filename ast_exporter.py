@@ -1,7 +1,7 @@
-# ast_exporter.py
 import json
-from ast_nodes import ASTNode, Program, Compound, Assign, Var, Num, BinOp, If, While, Call, VarDecl
+from ast_nodes import ASTNode, Program, Compound, Assign, Var, Num, BinOp, If, While, Call, VarDecl, ConstDecl, TypeDecl, FunctionDecl
 from typing import Any, Dict, List
+
 
 # ---------- EXPORTAÇÃO PARA JSON ----------
 def ast_to_dict(node: ASTNode) -> Any:

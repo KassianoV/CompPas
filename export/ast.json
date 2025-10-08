@@ -1,55 +1,158 @@
 {
   "type": "Program",
-  "name": "exemplo1",
-  "var_decls": [
+  "name": "testeFatorial",
+  "decls": [
+    {
+      "type": "TypeDecl",
+      "name": "numero",
+      "definition": "inteiro"
+    },
     {
       "type": "VarDecl",
       "names": [
-        "x",
-        "y",
-        "z"
+        "resultado_final"
       ],
-      "type_name": "integer"
+      "type_name": "numero"
+    },
+    {
+      "type": "FunctionDecl",
+      "name": "fatorial",
+      "params": [
+        {
+          "type": "VarDecl",
+          "names": [
+            "n"
+          ],
+          "type_name": "integer"
+        }
+      ],
+      "return_type": "integer",
+      "local_vars": [
+        {
+          "type": "VarDecl",
+          "names": [
+            "i",
+            "res"
+          ],
+          "type_name": "integer"
+        }
+      ],
+      "body": {
+        "type": "Compound",
+        "statements": [
+          {
+            "type": "Assign",
+            "target": {
+              "type": "Var",
+              "name": "res"
+            },
+            "value": {
+              "type": "Num",
+              "value": 1
+            }
+          },
+          {
+            "type": "Assign",
+            "target": {
+              "type": "Var",
+              "name": "i"
+            },
+            "value": {
+              "type": "Num",
+              "value": 1
+            }
+          },
+          {
+            "type": "While",
+            "condition": {
+              "type": "BinOp",
+              "op": "<=",
+              "left": {
+                "type": "Var",
+                "name": "i"
+              },
+              "right": {
+                "type": "Var",
+                "name": "n"
+              }
+            },
+            "body": {
+              "type": "Compound",
+              "statements": [
+                {
+                  "type": "Assign",
+                  "target": {
+                    "type": "Var",
+                    "name": "res"
+                  },
+                  "value": {
+                    "type": "BinOp",
+                    "op": "*",
+                    "left": {
+                      "type": "Var",
+                      "name": "res"
+                    },
+                    "right": {
+                      "type": "Var",
+                      "name": "i"
+                    }
+                  }
+                },
+                {
+                  "type": "Assign",
+                  "target": {
+                    "type": "Var",
+                    "name": "i"
+                  },
+                  "value": {
+                    "type": "BinOp",
+                    "op": "+",
+                    "left": {
+                      "type": "Var",
+                      "name": "i"
+                    },
+                    "right": {
+                      "type": "Num",
+                      "value": 1
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "Assign",
+            "target": {
+              "type": "Var",
+              "name": "fatorial"
+            },
+            "value": {
+              "type": "Var",
+              "name": "res"
+            }
+          }
+        ]
+      }
     }
   ],
   "block": {
     "type": "Compound",
     "statements": [
       {
-        "type": "Call",
-        "name": "read",
-        "args": [
-          {
-            "type": "Var",
-            "name": "x"
-          }
-        ]
-      },
-      {
         "type": "Assign",
         "target": {
           "type": "Var",
-          "name": "y"
+          "name": "resultado_final"
         },
         "value": {
-          "type": "BinOp",
-          "op": "+",
-          "left": {
-            "type": "Var",
-            "name": "x"
-          },
-          "right": {
-            "type": "BinOp",
-            "op": "*",
-            "left": {
+          "type": "Call",
+          "name": "fatorial",
+          "args": [
+            {
               "type": "Num",
-              "value": 2
-            },
-            "right": {
-              "type": "Num",
-              "value": 3
+              "value": 7
             }
-          }
+          ]
         }
       },
       {
@@ -59,11 +162,11 @@
           "op": ">",
           "left": {
             "type": "Var",
-            "name": "y"
+            "name": "resultado_final"
           },
           "right": {
             "type": "Num",
-            "value": 5
+            "value": 1000
           }
         },
         "then_branch": {
@@ -71,8 +174,8 @@
           "name": "write",
           "args": [
             {
-              "type": "Var",
-              "name": "y"
+              "type": "String",
+              "value": "O fatorial de 7 e um numero grande."
             }
           ]
         },
@@ -81,29 +184,10 @@
           "name": "write",
           "args": [
             {
-              "type": "Num",
-              "value": 0
+              "type": "String",
+              "value": "O fatorial de 7 e um numero pequeno."
             }
           ]
-        }
-      },
-      {
-        "type": "Assign",
-        "target": {
-          "type": "Var",
-          "name": "z"
-        },
-        "value": {
-          "type": "BinOp",
-          "op": "-",
-          "left": {
-            "type": "Var",
-            "name": "y"
-          },
-          "right": {
-            "type": "Num",
-            "value": 1
-          }
         }
       }
     ]

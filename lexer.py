@@ -18,22 +18,17 @@ class Lexer:
         self.line = 1
         self.col = 1
 
-        # ordem importa: padrões mais longos / específicos primeiro
+        # Regras de tokens — ordem importa
         self.token_specs = [
-            # Comentários no formato {# ... #} (multi-linha)
             ('COMMENT', r'\{#[\s\S]*?#\}'),
 
             # Literais
-            ('CONST_STR', r'"[^"\\]*"'),
+            ('CONST_STR', r'"(?:\\.|[^"\\])*"'),
             ('CONST_NUM', r'\d+(?:\.\d+)?'),
 
-            # Operadores relacionais (colocar antes de tokens simples)
+            # Operadores relacionais e lógicos
             ('OP_REL', r'(<=|>=|<>|<|>|=)'),
-
-            # Atribuição
             ('OP_ASSIGN', r':='),
-
-            # Operadores aritméticos
             ('OP_MAT', r'[+\-*/]'),
 
             # Pontuação
@@ -46,25 +41,36 @@ class Lexer:
             ('ABRE_COL', r'\['),
             ('FECHA_COL', r'\]'),
 
-            # Identificador (underscores permitidos)
+            # Identificadores
             ('ID', r'[A-Za-z_][A-Za-z0-9_]*'),
 
             # Espaços e nova linha
             ('NEWLINE', r'\n'),
             ('SKIP', r'[ \t\r]+'),
 
-            # Qualquer outro caractere (erro)
+            # Qualquer outro caractere
             ('MISMATCH', r'.'),
         ]
 
         parts = [f'(?P<{name}>{pattern})' for name, pattern in self.token_specs]
-        # compile without DOTALL because comment pattern already uses [\s\S]
         self.master_re = re.compile('|'.join(parts))
 
-        # palavras reservadas (em lower-case para comparação)
+        # Palavras reservadas da gramática Pascal simplificada
         self.keywords = {
-            'program','begin','end','type','var','function','procedure',
-            'if','then','else','while','do','array','of','record','read','write','const'
+            # Estrutura
+            'program','begin','end','type','var','const','function','procedure',
+            # Controle de fluxo
+            'if','then','else','while','do',
+            # Estruturas de dados
+            'array','of','record',
+            # Entrada e saída
+            'read','write',
+            # Booleanos
+            'true','false',
+            # Operadores lógicos
+            'and','or','not',
+            # Tipos básicos
+            'integer','real','boolean','string'
         }
 
     def tokenize(self):
@@ -80,18 +86,15 @@ class Lexer:
                 self.col += len(value)
                 continue
             elif kind == 'COMMENT':
-                # atualiza linha/coluna mesmo dentro do comentário
                 self.line += value.count('\n')
-                # após comentário, colocamos coluna no final da última linha do comentário +1
                 if '\n' in value:
-                    # posição depois do último newline
                     last_line = value.split('\n')[-1]
                     self.col = len(last_line) + 1
                 else:
                     self.col += len(value)
                 continue
             elif kind == 'ID' and value.lower() in self.keywords:
-                kind = value.upper()   # token do tipo PROGRAM, BEGIN, IF etc.
+                kind = value.upper()
             elif kind == 'MISMATCH':
                 raise LexerError(f'Caractere inesperado {value!r} na linha {self.line}, coluna {self.col}')
 

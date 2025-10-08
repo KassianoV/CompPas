@@ -4,6 +4,19 @@ from ast_nodes import *
 from ast_exporter import export_ast_to_json, DotExporter
 import sys, os
 
+# ==========================================
+# FUNÇÕES AUXILIARES
+# ==========================================
+
+def carregar_codigo(caminho: str) -> str:
+    """Lê o conteúdo de um arquivo .pas e retorna como string."""
+    if not os.path.exists(caminho):
+        raise FileNotFoundError(f"Arquivo '{caminho}' não encontrado.")
+    if not caminho.endswith(".pas"):
+        raise ValueError("O arquivo deve ter a extensão .pas")
+    with open(caminho, "r", encoding="utf-8") as f:
+        return f.read()
+
 def testar_lexer(codigo_fonte: str):
     print("\n===== RESULTADO DA ANÁLISE LÉXICA =====")
     try:
@@ -15,31 +28,61 @@ def testar_lexer(codigo_fonte: str):
     print("======================================\n")
 
 def print_ast(node, indent=0):
+    """Impressão hierárquica da AST."""
     pad = '  ' * indent
     if isinstance(node, Program):
         print(f"{pad}Program(name='{node.name}')")
-        if node.var_decls:
-            print(f"{pad}  VarDecls:")
-            for vd in node.var_decls:
-                print(f"{pad}    {vd.names} : {vd.type_name}")
-        print(f"{pad}  Block:")
+        if node.decls:
+            print(f"{pad}  Declarações:")
+            for d in node.decls:
+                print_ast(d, indent+2)
+        print(f"{pad}  Bloco principal:")
         print_ast(node.block, indent+2)
+
+    elif isinstance(node, VarDecl):
+        print(f"{pad}VarDecl(names={node.names}, type={node.type_name})")
+
+    elif isinstance(node, ConstDecl):
+        print(f"{pad}ConstDecl(name='{node.name}')")
+        print_ast(node.value, indent+1)
+
+    elif isinstance(node, TypeDecl):
+        print(f"{pad}TypeDecl(name='{node.name}', definition='{node.definition}')")
+
+    elif isinstance(node, FunctionDecl):
+        print(f"{pad}FunctionDecl(name='{node.name}', return_type='{node.return_type}')")
+        if node.params:
+            print(f"{pad}  Params:")
+            for p in node.params:
+                print_ast(p, indent+2)
+        if node.local_vars:
+            print(f"{pad}  LocalVars:")
+            for v in node.local_vars:
+                print_ast(v, indent+2)
+        print(f"{pad}  Body:")
+        print_ast(node.body, indent+2)
+
     elif isinstance(node, Compound):
         print(f"{pad}Compound:")
         for s in node.statements:
             print_ast(s, indent+1)
+
     elif isinstance(node, Assign):
         print(f"{pad}Assign:")
         print_ast(node.target, indent+1)
         print_ast(node.value, indent+1)
+
     elif isinstance(node, Var):
         print(f"{pad}Var(name='{node.name}')")
+
     elif isinstance(node, Num):
         print(f"{pad}Num(value={node.value})")
+
     elif isinstance(node, BinOp):
         print(f"{pad}BinOp(op='{node.op}')")
-        print_ast(node.left, indent+1)
-        print_ast(node.right, indent+1)
+        if node.left: print_ast(node.left, indent+1)
+        if node.right: print_ast(node.right, indent+1)
+
     elif isinstance(node, If):
         print(f"{pad}If:")
         print(f"{pad}  Condition:")
@@ -49,20 +92,24 @@ def print_ast(node, indent=0):
         if node.else_branch:
             print(f"{pad}  Else:")
             print_ast(node.else_branch, indent+2)
+
     elif isinstance(node, While):
         print(f"{pad}While:")
         print(f"{pad}  Condition:")
         print_ast(node.condition, indent+2)
         print(f"{pad}  Body:")
         print_ast(node.body, indent+2)
+
     elif isinstance(node, Call):
         print(f"{pad}Call(name='{node.name}')")
         for a in node.args:
             print_ast(a, indent+1)
+
     else:
         print(f"{pad}{node!r}")
 
-def testar_parser(codigo):
+def testar_parser(codigo: str):
+    """Executa o parser e imprime a AST."""
     lexer = Lexer(codigo)
     tokens = list(lexer.tokenize())
     parser = Parser(tokens)
@@ -77,6 +124,7 @@ def testar_parser(codigo):
         return None
 
 def exportar_ast(ast):
+    """Exporta a AST para JSON e DOT."""
     if not ast:
         print("Nenhuma AST para exportar!")
         return
@@ -84,58 +132,47 @@ def exportar_ast(ast):
     export_ast_to_json(ast, "export/ast.json")
     dot = DotExporter()
     dot.export(ast, "export/ast.dot")
-    print("Você pode visualizar o arquivo DOT em: https://dreampuf.github.io/GraphvizOnline/")
+    print("\n✅ AST exportada com sucesso!")
+    print("  → export/ast.json")
+    print("  → export/ast.dot (visualize em https://dreampuf.github.io/GraphvizOnline/)")
 
+# ==========================================
+# MENU PRINCIPAL
+# ==========================================
 def menu():
-    exemplos = {
-        '1': """program exemplo;
-var x: integer;
-begin
-  x := 5 + 3;
-  write(x);
-end.""",
-        '2': """program teste;
-var a, b: real;
-begin
-  read(a);
-  b := a * 2;
-  write(b);
-end."""
-    }
-
     ultima_ast = None
     while True:
-        print("\n===== MENU =====")
-        print("1 - Testar lexer")
-        print("2 - Testar parser (mostrar AST)")
+        print("\n========== MENU ==========")
+        print("1 - Testar lexer (arquivo .pas)")
+        print("2 - Testar parser (arquivo .pas)")
         print("3 - Exportar AST (JSON / DOT)")
-        print("4 - Usar exemplo pronto")
-        print("5 - Sair")
-        print("================")
+        print("4 - Sair")
+        print("==========================")
         op = input("Escolha uma opção: ").strip()
-        if op == '1':
-            codigo = input("\nDigite o código: \n")
-            testar_lexer(codigo)
-        elif op == '2':
-            codigo = input("\nDigite o código: \n")
-            ultima_ast = testar_parser(codigo)
+
+        if op in ('1', '2'):
+            caminho = input("\nInforme o caminho do arquivo .pas: ").strip()
+            try:
+                codigo = carregar_codigo(caminho)
+            except Exception as e:
+                print(f"❌ Erro ao carregar arquivo: {e}")
+                continue
+
+            if op == '1':
+                testar_lexer(codigo)
+            elif op == '2':
+                ultima_ast = testar_parser(codigo)
+
         elif op == '3':
             exportar_ast(ultima_ast)
+
         elif op == '4':
-            print("\nExemplos disponíveis:")
-            for k, v in exemplos.items():
-                print(f"{k} - {v.splitlines()[0]}")
-            escolha = input("Escolha o exemplo: ").strip()
-            codigo = exemplos.get(escolha)
-            if codigo:
-                ultima_ast = testar_parser(codigo)
-            else:
-                print("Opção inválida.")
-        elif op == '5':
             print("Saindo...")
             sys.exit(0)
-        else:
-            print("Opção inválida.")
 
-if __name__ == '__main__':
+        else:
+            print("Opção inválida. Tente novamente.")
+
+# ==========================================
+if __name__ == "__main__":
     menu()

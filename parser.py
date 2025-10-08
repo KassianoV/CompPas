@@ -1,4 +1,4 @@
-from lexer import Lexer, Token
+from lexer import Token
 from ast_nodes import *
 from typing import List
 
@@ -10,7 +10,7 @@ class Parser:
         self.tokens = list(tokens)
         self.pos = 0
 
-    # utilitários
+    # ======== Funções utilitárias ========
     def peek(self):
         return self.tokens[self.pos] if self.pos < len(self.tokens) else None
 
@@ -31,48 +31,121 @@ class Parser:
             return True
         return False
 
-    # parser principal
+    # ======== Ponto de entrada ========
     def parse(self):
-        # program ID ; [declarations] begin ... end .
         self.consume('PROGRAM')
         name_tok = self.consume('ID')
         self.consume('PONT_VIRG')
-        var_decls = self.parse_declarations()  # optional
-        block = self.parse_block()
-        self.consume('PONT')  # ponto final
-        return Program(name_tok.lexeme, var_decls, block)
 
+        decls = self.parse_declarations()
+        block = self.parse_block()
+        self.consume('PONT')
+
+        return Program(name_tok.lexeme, decls, block)
+
+    # ======== Declarações ========
     def parse_declarations(self):
         decls = []
-        if self.match('VAR'):
-            self.consume('VAR')
-            # múltiplas declarações até encontrar BEGIN
-            while not self.match('BEGIN'):
-                # id (, id)* : type ;
-                names = []
-                names.append(self.consume('ID').lexeme)
-                while self.match('VIRG'):
-                    self.consume('VIRG')
-                    names.append(self.consume('ID').lexeme)
-                self.consume('DOIS_PONT')
-                type_name = self.consume('ID').lexeme
-                self.consume('PONT_VIRG')
-                decls.append(VarDecl(names, type_name))
+        while self.match('CONST', 'TYPE', 'VAR', 'FUNCTION'):
+            if self.match('CONST'):
+                decls += self.parse_const_section()
+            elif self.match('TYPE'):
+                decls += self.parse_type_section()
+            elif self.match('VAR'):
+                decls += self.parse_var_section()
+            elif self.match('FUNCTION'):
+                decls += self.parse_function_section()
         return decls
 
+    def parse_const_section(self):
+        consts = []
+        self.consume('CONST')
+        while not self.match('TYPE', 'VAR', 'FUNCTION', 'BEGIN'):
+            name = self.consume('ID').lexeme
+            self.consume('OP_ASSIGN')
+            value = self.parse_expression()
+            self.consume('PONT_VIRG')
+            consts.append(ConstDecl(name, value))
+        return consts
+
+    def parse_type_section(self):
+        types = []
+        self.consume('TYPE')
+        while not self.match('VAR', 'FUNCTION', 'BEGIN'):
+            name = self.consume('ID').lexeme
+            self.consume('OP_REL', '=')
+
+            # CORREÇÃO: Aceita um ID ou um tipo primitivo
+            if self.match('ID', 'INTEGER', 'REAL', 'BOOLEAN', 'STRING'):
+                definition = self.consume().lexeme
+            else:
+                raise ParserError(f'Definição de tipo inválida: {self.peek().lexeme}')
+
+            self.consume('PONT_VIRG')
+            types.append(TypeDecl(name, definition))
+        return types
+
+    def parse_var_section(self):
+        vars = []
+        self.consume('VAR')
+        while not self.match('BEGIN', 'FUNCTION'):
+            names = [self.consume('ID').lexeme]
+            while self.match('VIRG'):
+                self.consume('VIRG')
+                names.append(self.consume('ID').lexeme)
+            self.consume('DOIS_PONT')
+
+            if self.match('ID', 'INTEGER', 'REAL', 'BOOLEAN', 'STRING'):
+                type_tok = self.consume().lexeme
+            else:
+                raise ParserError(f'Tipo inválido: {self.peek().lexeme}')
+            self.consume('PONT_VIRG')
+            vars.append(VarDecl(names, type_tok))
+        return vars
+
+    def parse_function_section(self):
+        self.consume('FUNCTION')
+        name = self.consume('ID').lexeme
+        self.consume('ABRE_PARENT')
+        params = []
+        if not self.match('FECHA_PARENT'):
+            params.append(self.parse_param())
+            while self.match('PONT_VIRG'):
+                self.consume('PONT_VIRG')
+                params.append(self.parse_param())
+        self.consume('FECHA_PARENT')
+        self.consume('DOIS_PONT')
+        return_type = self.consume().lexeme
+        self.consume('PONT_VIRG')
+
+        local_vars = []
+        if self.match('VAR'):
+            local_vars = self.parse_var_section()
+
+        block = self.parse_block()
+        self.consume('PONT_VIRG')
+        return [FunctionDecl(name, params, return_type, local_vars, block)]
+
+    def parse_param(self):
+        names = [self.consume('ID').lexeme]
+        while self.match('VIRG'):
+            self.consume('VIRG')
+            names.append(self.consume('ID').lexeme)
+        self.consume('DOIS_PONT')
+        if self.match('ID', 'INTEGER', 'REAL', 'BOOLEAN', 'STRING'):
+            type_tok = self.consume().lexeme
+        else:
+            raise ParserError(f'Tipo inválido em parâmetro: {self.peek().lexeme}')
+        return VarDecl(names, type_tok)
+
+    # ======== Blocos e comandos ========
     def parse_block(self):
         self.consume('BEGIN')
         stmts = []
-        # aceitar zero ou mais statements até END
         while not self.match('END'):
-            stmt = self.parse_statement()
-            stmts.append(stmt)
-            # ponto e vírgula opcional entre statements
+            stmts.append(self.parse_statement())
             if self.match('PONT_VIRG'):
                 self.consume('PONT_VIRG')
-            else:
-                # se próximo token começar um statement sem ; (p.ex. END), ok; caso contrário, continue
-                pass
         self.consume('END')
         return Compound(stmts)
 
@@ -82,16 +155,11 @@ class Parser:
             raise ParserError('Esperava comando, mas encontrou EOF')
 
         if tok.type == 'ID':
-            # pode ser atribuição ou chamada de função (se seguido por '(')
-            # olhe adiante
             nxt = self.tokens[self.pos + 1] if (self.pos + 1) < len(self.tokens) else None
             if nxt and nxt.type == 'OP_ASSIGN':
                 return self.parse_assignment()
             elif nxt and nxt.type == 'ABRE_PARENT':
                 return self.parse_call_statement()
-            else:
-                # se não for nenhum dos dois, assume erro
-                return self.parse_assignment()  # tentamos interpretar como atribuição (vai falhar se não)
         elif tok.type == 'IF':
             return self.parse_if()
         elif tok.type == 'WHILE':
@@ -100,10 +168,8 @@ class Parser:
             return self.parse_block()
         elif tok.type in ('READ', 'WRITE'):
             return self.parse_call_statement()
-        else:
-            raise ParserError(f'Comando inesperado: {tok.lexeme}')
+        raise ParserError(f'Comando inesperado: {tok.lexeme}')
 
-    # comandos
     def parse_assignment(self):
         var_name = self.consume('ID').lexeme
         self.consume('OP_ASSIGN')
@@ -112,9 +178,7 @@ class Parser:
 
     def parse_if(self):
         self.consume('IF')
-        self.consume('ABRE_PARENT')
         cond = self.parse_expression()
-        self.consume('FECHA_PARENT')
         self.consume('THEN')
         then_stmt = self.parse_statement()
         else_stmt = None
@@ -125,16 +189,12 @@ class Parser:
 
     def parse_while(self):
         self.consume('WHILE')
-        self.consume('ABRE_PARENT')
         cond = self.parse_expression()
-        self.consume('FECHA_PARENT')
         self.consume('DO')
         body = self.parse_statement()
         return While(cond, body)
 
     def parse_call_statement(self):
-        # chamadas como: read(x), write(a+b), foo(a, b)
-        # aceitar READ/WRITE como keywords também
         if self.match('READ') or self.match('WRITE'):
             name = self.consume().lexeme
         else:
@@ -149,12 +209,19 @@ class Parser:
         self.consume('FECHA_PARENT')
         return Call(name, args)
 
-    # expressões (removendo recursão à esquerda)
+    # ======== Expressões ========
     def parse_expression(self):
+        node = self.parse_relation()
+        while self.match('AND', 'OR'):
+            op = self.consume().lexeme
+            right = self.parse_relation()
+            node = BinOp(op, node, right)
+        return node
+
+    def parse_relation(self):
         node = self.parse_simple_expression()
-        tok = self.peek()
-        if tok and tok.type == 'OP_REL':
-            op = self.consume('OP_REL').lexeme
+        if self.match('OP_REL'):
+            op = self.consume().lexeme
             right = self.parse_simple_expression()
             node = BinOp(op, node, right)
         return node
@@ -185,38 +252,30 @@ class Parser:
 
     def parse_factor(self):
         tok = self.peek()
-        if not tok:
-            raise ParserError('Fator inesperado: EOF')
+        if tok.type == 'CONST_STR':
+            self.consume('CONST_STR')
+            return String(tok.lexeme[1:-1])  # Remove as aspas
         if tok.type == 'CONST_NUM':
             self.consume('CONST_NUM')
-            # se inteiro sem '.', converte para int
-            if '.' in tok.lexeme:
-                return Num(float(tok.lexeme))
-            else:
-                return Num(int(tok.lexeme))
-        elif tok.type == 'CONST_STR':
-            self.consume('CONST_STR')
-            # manter com aspas
-            return Num(tok.lexeme)
+            return Num(float(tok.lexeme) if '.' in tok.lexeme else int(tok.lexeme))
         elif tok.type == 'ID':
-            # pode ser var ou chamada de função
             nxt = self.tokens[self.pos + 1] if (self.pos + 1) < len(self.tokens) else None
             if nxt and nxt.type == 'ABRE_PARENT':
-                # chamada de função dentro de expressão
                 return self.parse_call_expression()
-            else:
-                self.consume('ID')
-                return Var(tok.lexeme)
+            self.consume('ID')
+            return Var(tok.lexeme)
         elif tok.type == 'ABRE_PARENT':
             self.consume('ABRE_PARENT')
             expr = self.parse_expression()
             self.consume('FECHA_PARENT')
             return expr
-        else:
-            raise ParserError(f'Fator inesperado: {tok.lexeme}')
+        elif tok.type == 'NOT':
+            self.consume('NOT')
+            expr = self.parse_factor()
+            return BinOp('not', expr, None)
+        raise ParserError(f'Fator inesperado: {tok.lexeme}')
 
     def parse_call_expression(self):
-        # semântica de função usada em expressão: foo(a, b)
         name = self.consume('ID').lexeme
         self.consume('ABRE_PARENT')
         args = []
@@ -227,4 +286,3 @@ class Parser:
                 args.append(self.parse_expression())
         self.consume('FECHA_PARENT')
         return Call(name, args)
-
