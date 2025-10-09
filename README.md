@@ -73,7 +73,9 @@ Para visualizar o gráfico:
 1.  Abra o arquivo `export/ast.dot` em um editor de texto e copie todo o seu conteúdo.
 2.  Acesse o site **[Graphviz Online](https://dreampuf.github.io/GraphvizOnline/)**.
 3.  Cole o conteúdo na caixa de texto à esquerda. A imagem da árvore será renderizada automaticamente à direita.
-
+```bash
+dot -Tpng ast.dot -o ast.png
+```
 ---
 
 **Autor**

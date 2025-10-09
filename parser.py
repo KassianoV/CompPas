@@ -254,7 +254,7 @@ class Parser:
         tok = self.peek()
         if tok.type == 'CONST_STR':
             self.consume('CONST_STR')
-            return String(tok.lexeme[1:-1])  # Remove as aspas
+            return String(tok.lexeme[1:-1]) 
         if tok.type == 'CONST_NUM':
             self.consume('CONST_NUM')
             return Num(float(tok.lexeme) if '.' in tok.lexeme else int(tok.lexeme))

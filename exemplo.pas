@@ -1,4 +1,4 @@
-program testeFatorial;
+program teste1Fatorial;
 
 type
   numero = inteiro;
@@ -10,7 +10,7 @@ function fatorial(n: integer): integer;
 var
   i, res: integer;
 begin
-  res := 1;
+  res := 45.0;
   i := 1;
   
   {# Teste do loop 'while' sem parenteses na condicao #}
