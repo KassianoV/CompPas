@@ -1,5 +1,5 @@
 from lexer import Lexer, LexerError
-from parser import Parser, ParserError
+from parser import Parser, ParserError, SemanticError
 from ast_nodes import *
 from ast_exporter import export_ast_to_json, DotExporter
 import sys, os
@@ -108,19 +108,29 @@ def print_ast(node, indent=0):
     else:
         print(f"{pad}{node!r}")
 
-def testar_parser(codigo: str):
-    """Executa o parser e imprime a AST."""
+def testar_parser_com_semantica(codigo: str, habilitar_semantica=True):
+    """Executa o parser com análise semântica integrada."""
     lexer = Lexer(codigo)
     tokens = list(lexer.tokenize())
-    parser = Parser(tokens)
+    parser = Parser(tokens, enable_semantic=habilitar_semantica)
+    
     try:
         ast = parser.parse()
         print("\n===== ÁRVORE SINTÁTICA ABSTRATA =====")
         print_ast(ast)
         print("=====================================")
+        
+        if habilitar_semantica:
+            print("\n✅ Análise sintática e semântica concluídas com sucesso!")
+        else:
+            print("\n✅ Análise sintática concluída com sucesso!")
+        
         return ast
     except ParserError as e:
-        print(f"Erro sintático: {e}")
+        print(f"\n❌ Erro sintático: {e}")
+        return None
+    except SemanticError as e:
+        print(f"\n❌ {e}")
         return None
 
 def exportar_ast(ast):
@@ -142,15 +152,16 @@ def exportar_ast(ast):
 def menu():
     ultima_ast = None
     while True:
-        print("\n========== MENU ==========")
-        print("1 - Testar lexer (arquivo .pas)")
-        print("2 - Testar parser (arquivo .pas)")
-        print("3 - Exportar AST (JSON / DOT)")
-        print("4 - Sair")
-        print("==========================")
+        print("\n========== MENU DO COMPILADOR ==========")
+        print("1 - Testar apenas Léxico (tokens)")
+        print("2 - Testar apenas Sintático (AST)")
+        print("3 - Testar Sintático + Semântico")
+        print("4 - Exportar AST (JSON / DOT)")
+        print("5 - Sair")
+        print("========================================")
         op = input("Escolha uma opção: ").strip()
 
-        if op in ('1', '2'):
+        if op in ('1', '2', '3'):
             caminho = input("\nInforme o caminho do arquivo .pas: ").strip()
             try:
                 codigo = carregar_codigo(caminho)
@@ -161,12 +172,14 @@ def menu():
             if op == '1':
                 testar_lexer(codigo)
             elif op == '2':
-                ultima_ast = testar_parser(codigo)
-
-        elif op == '3':
-            exportar_ast(ultima_ast)
+                ultima_ast = testar_parser_com_semantica(codigo, habilitar_semantica=False)
+            elif op == '3':
+                ultima_ast = testar_parser_com_semantica(codigo, habilitar_semantica=True)
 
         elif op == '4':
+            exportar_ast(ultima_ast)
+
+        elif op == '5':
             print("Saindo...")
             sys.exit(0)
 
@@ -175,4 +188,8 @@ def menu():
 
 # ==========================================
 if __name__ == "__main__":
+    print("╔════════════════════════════════════════╗")
+    print("║  COMPILADOR PASCAL SIMPLIFICADO        ║")
+    print("║  Análise Léxica + Sintática + Semântica║")
+    print("╚════════════════════════════════════════╝")
     menu()

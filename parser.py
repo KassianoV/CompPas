@@ -1,10 +1,81 @@
 from lexer import Token
 from ast_nodes import *
-from typing import List
+from typing import List, Dict, Optional
 
 class ParserError(Exception):
     pass
 
+class SemanticError(Exception):
+    pass
+
+"""Representa um símbolo na tabela de símbolos"""
+class Symbol:
+    def __init__(self, name: str, symbol_type: str, kind: str, scope_level: int):
+        self.name = name
+        self.symbol_type = symbol_type  # tipo do símbolo (integer, real, etc)
+        self.kind = kind  # 'var', 'const', 'function', 'type', 'param'
+        self.scope_level = scope_level
+        self.params = []  # para funções: lista de (nome, tipo)
+        self.return_type = None  # para funções
+
+"""Tabela de símbolos com suporte a escopos aninhados"""
+class SymbolTable:
+    def __init__(self):
+        self.scopes: List[Dict[str, Symbol]] = [{}]
+        self.current_level = 0
+        self._add_builtin_types()
+
+    """Adiciona tipos primitivos à tabela"""
+    def _add_builtin_types(self):
+        
+        for type_name in ['integer', 'real', 'boolean', 'string']:
+            self.scopes[0][type_name] = Symbol(
+                name=type_name,
+                symbol_type=type_name,
+                kind='type',
+                scope_level=0
+            )
+    """Entra em um novo escopo"""        
+    def enter_scope(self):
+        self.current_level += 1
+        self.scopes.append({})
+
+    """Sai do escopo atual"""
+    def exit_scope(self):
+        if self.current_level > 0:
+            self.scopes.pop()
+            self.current_level -= 1
+
+    """Declara um símbolo ao escopo atual"""
+    def declare(self, symbol: Symbol):
+        name_lower = symbol.name.lower()
+        
+        if name_lower in self.scopes[self.current_level]:
+            raise SemanticError(
+                f"Erro Semântico: Identificador '{symbol.name}' já foi declarado neste escopo"
+            )
+        
+        symbol.scope_level = self.current_level
+        self.scopes[self.current_level][name_lower] = symbol
+
+    """Busca um símbolo em todos os escopos"""
+    def lookup(self, name: str) -> Optional[Symbol]:
+        name_lower = name.lower()
+        for i in range(self.current_level, -1, -1):
+            if name_lower in self.scopes[i]:
+                return self.scopes[i][name_lower]
+        return None
+    
+    """Resolve um tipo customizado para seu tipo base"""
+    def resolve_type(self, type_name: str) -> str:
+        symbol = self.lookup(type_name)
+        if not symbol or symbol.kind != 'type':
+            return type_name
+        if symbol.symbol_type == type_name:
+            return type_name
+        return self.resolve_type(symbol.symbol_type)
+
+"""Módulo de Análise Sintática (Parser)"""
 class Parser:
     def __init__(self, tokens: List[Token]):
         self.tokens = list(tokens)
@@ -30,6 +101,137 @@ class Parser:
         if tok and tok.type in token_types:
             return True
         return False
+    
+    """Adiciona erro semântico à lista"""
+    def add_semantic_error(self, message: str):
+        if self.enable_semantic:
+            self.semantic_errors.append(message)
+    
+    """Verifica se há erros semânticos e lança exceção"""
+    def check_semantic_errors(self):
+        if self.enable_semantic and self.semantic_errors:
+            error_msg = "\n".join(self.semantic_errors)
+            raise SemanticError(f"Erros semânticos encontrados:\n{error_msg}")
+
+ # ======== Verificações Semânticas ========
+    
+    def types_compatible(self, type1: str, type2: str) -> bool:
+        """Verifica se dois tipos são compatíveis"""
+        if type1 == 'unknown' or type2 == 'unknown':
+            return True
+        
+        type1_lower = type1.lower()
+        type2_lower = type2.lower()
+        
+        if type1_lower == type2_lower:
+            return True
+        
+        # Integer pode ser promovido para real
+        if (type1_lower == 'real' and type2_lower == 'integer') or \
+           (type1_lower == 'integer' and type2_lower == 'real'):
+            return True
+        
+        # Resolve tipos customizados
+        base1 = self.symbol_table.resolve_type(type1)
+        base2 = self.symbol_table.resolve_type(type2)
+        return base1.lower() == base2.lower()
+    """Infere o tipo de uma expressão"""
+    def infer_expression_type(self, node: ASTNode) -> str:
+        if isinstance(node, Num):
+            return 'integer' if isinstance(node.value, int) else 'real'
+        elif isinstance(node, String):
+            return 'string'
+        elif isinstance(node, Var):
+            symbol = self.symbol_table.lookup(node.name)
+            if not symbol:
+                self.add_semantic_error(f"Erro: Variável '{node.name}' não foi declarada")
+                return 'unknown'
+            return symbol.symbol_type
+        elif isinstance(node, BinOp):
+            return self.infer_binop_type(node)
+        elif isinstance(node, Call):
+            return self.infer_call_type(node)
+        return 'unknown'
+    
+    """Infere o tipo de uma operação binária"""
+    def infer_binop_type(self, node: BinOp) -> str:
+        op = node.op.lower()
+        
+        if op == 'not':
+            operand_type = self.infer_expression_type(node.left)
+            if operand_type != 'boolean':
+                self.add_semantic_error(
+                    f"Erro: Operador 'not' requer operando booleano, mas recebeu '{operand_type}'"
+                )
+            return 'boolean'
+        
+        left_type = self.infer_expression_type(node.left)
+        right_type = self.infer_expression_type(node.right)
+        
+        if op in ['+', '-', '*', '/']:
+            if left_type not in ['integer', 'real'] or right_type not in ['integer', 'real']:
+                self.add_semantic_error(
+                    f"Erro: Operador '{op}' requer operandos numéricos, mas recebeu '{left_type}' e '{right_type}'"
+                )
+                return 'unknown'
+            if left_type == 'real' or right_type == 'real':
+                return 'real'
+            return 'integer'
+        
+        elif op in ['=', '<>', '<', '>', '<=', '>=']:
+            if not self.types_compatible(left_type, right_type):
+                self.add_semantic_error(
+                    f"Erro: Operador '{op}' requer operandos do mesmo tipo, mas recebeu '{left_type}' e '{right_type}'"
+                )
+            return 'boolean'
+        
+        elif op in ['and', 'or']:
+            if left_type != 'boolean' or right_type != 'boolean':
+                self.add_semantic_error(
+                    f"Erro: Operador '{op}' requer operandos booleanos, mas recebeu '{left_type}' e '{right_type}'"
+                )
+            return 'boolean'
+        
+        return 'unknown'
+    
+    """Infere o tipo de uma chamada de função"""
+    def infer_call_type(self, node: Call) -> str:
+        func_name_lower = node.name.lower()
+        
+        if func_name_lower in ['read', 'write']:
+            for arg in node.args:
+                self.infer_expression_type(arg)
+            return 'void'
+        
+        func_symbol = self.symbol_table.lookup(node.name)
+        if not func_symbol:
+            self.add_semantic_error(f"Erro: Função '{node.name}' não foi declarada")
+            return 'unknown'
+        
+        if func_symbol.kind != 'function':
+            self.add_semantic_error(f"Erro: '{node.name}' não é uma função")
+            return 'unknown'
+        
+        expected_params = len(func_symbol.params)
+        actual_params = len(node.args)
+        
+        if expected_params != actual_params:
+            self.add_semantic_error(
+                f"Erro: Função '{node.name}' espera {expected_params} parâmetro(s), mas recebeu {actual_params}"
+            )
+            return func_symbol.return_type
+        
+        for i, arg in enumerate(node.args):
+            arg_type = self.infer_expression_type(arg)
+            expected_type = func_symbol.params[i][1]
+            
+            if not self.types_compatible(expected_type, arg_type):
+                self.add_semantic_error(
+                    f"Erro: Parâmetro {i+1} da função '{node.name}' espera tipo '{expected_type}', mas recebeu '{arg_type}'"
+                )
+        
+        return func_symbol.return_type
+
 
     # ======== Ponto de entrada ========
     def parse(self):
@@ -40,6 +242,9 @@ class Parser:
         decls = self.parse_declarations()
         block = self.parse_block()
         self.consume('PONT')
+
+        # Verifica erros semânticos ao final
+        self.check_semantic_errors()
 
         return Program(name_tok.lexeme, decls, block)
 
@@ -65,6 +270,16 @@ class Parser:
             self.consume('OP_ASSIGN')
             value = self.parse_expression()
             self.consume('PONT_VIRG')
+
+            # Semântica: declara constante
+            if self.enable_semantic:
+                expr_type = self.infer_expression_type(value)
+                symbol = Symbol(name, expr_type, 'const', self.symbol_table.current_level)
+                try:
+                    self.symbol_table.declare(symbol)
+                except SemanticError as e:
+                    self.add_semantic_error(str(e))
+
             consts.append(ConstDecl(name, value))
         return consts
 
@@ -75,13 +290,25 @@ class Parser:
             name = self.consume('ID').lexeme
             self.consume('OP_REL', '=')
 
-            # CORREÇÃO: Aceita um ID ou um tipo primitivo
             if self.match('ID', 'INTEGER', 'REAL', 'BOOLEAN', 'STRING'):
                 definition = self.consume().lexeme
             else:
                 raise ParserError(f'Definição de tipo inválida: {self.peek().lexeme}')
 
             self.consume('PONT_VIRG')
+
+            # Semântica: verifica tipo base e declara novo tipo
+            if self.enable_semantic:
+                base_type = self.symbol_table.lookup(definition)
+                if not base_type or base_type.kind != 'type':
+                    self.add_semantic_error(f"Erro: Tipo '{definition}' não foi declarado")
+                else:
+                    symbol = Symbol(name, definition, 'type', self.symbol_table.current_level)
+                    try:
+                        self.symbol_table.declare(symbol)
+                    except SemanticError as e:
+                        self.add_semantic_error(str(e))
+                        
             types.append(TypeDecl(name, definition))
         return types
 
@@ -102,6 +329,7 @@ class Parser:
             self.consume('PONT_VIRG')
             vars.append(VarDecl(names, type_tok))
         return vars
+    # Semântica: verifica tipo e declara variáveis
 
     def parse_function_section(self):
         self.consume('FUNCTION')
