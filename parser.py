@@ -8,8 +8,8 @@ class ParserError(Exception):
 class SemanticError(Exception):
     pass
 
-"""Representa um símbolo na tabela de símbolos"""
 class Symbol:
+    """Representa um símbolo na tabela de símbolos"""
     def __init__(self, name: str, symbol_type: str, kind: str, scope_level: int):
         self.name = name
         self.symbol_type = symbol_type  # tipo do símbolo (integer, real, etc)
@@ -18,16 +18,15 @@ class Symbol:
         self.params = []  # para funções: lista de (nome, tipo)
         self.return_type = None  # para funções
 
-"""Tabela de símbolos com suporte a escopos aninhados"""
 class SymbolTable:
+    """Tabela de símbolos com suporte a escopos aninhados"""
     def __init__(self):
         self.scopes: List[Dict[str, Symbol]] = [{}]
         self.current_level = 0
         self._add_builtin_types()
-
-    """Adiciona tipos primitivos à tabela"""
+    
     def _add_builtin_types(self):
-        
+        """Adiciona tipos primitivos à tabela"""
         for type_name in ['integer', 'real', 'boolean', 'string']:
             self.scopes[0][type_name] = Symbol(
                 name=type_name,
@@ -35,19 +34,20 @@ class SymbolTable:
                 kind='type',
                 scope_level=0
             )
-    """Entra em um novo escopo"""        
+    
     def enter_scope(self):
+        """Entra em um novo escopo"""
         self.current_level += 1
         self.scopes.append({})
-
-    """Sai do escopo atual"""
+    
     def exit_scope(self):
+        """Sai do escopo atual"""
         if self.current_level > 0:
             self.scopes.pop()
             self.current_level -= 1
-
-    """Declara um símbolo ao escopo atual"""
+    
     def declare(self, symbol: Symbol):
+        """Declara um símbolo no escopo atual"""
         name_lower = symbol.name.lower()
         
         if name_lower in self.scopes[self.current_level]:
@@ -57,17 +57,17 @@ class SymbolTable:
         
         symbol.scope_level = self.current_level
         self.scopes[self.current_level][name_lower] = symbol
-
-    """Busca um símbolo em todos os escopos"""
+    
     def lookup(self, name: str) -> Optional[Symbol]:
+        """Busca um símbolo em todos os escopos"""
         name_lower = name.lower()
         for i in range(self.current_level, -1, -1):
             if name_lower in self.scopes[i]:
                 return self.scopes[i][name_lower]
         return None
     
-    """Resolve um tipo customizado para seu tipo base"""
     def resolve_type(self, type_name: str) -> str:
+        """Resolve um tipo customizado para seu tipo base"""
         symbol = self.lookup(type_name)
         if not symbol or symbol.kind != 'type':
             return type_name
@@ -75,11 +75,17 @@ class SymbolTable:
             return type_name
         return self.resolve_type(symbol.symbol_type)
 
-"""Módulo de Análise Sintática (Parser)"""
+
 class Parser:
-    def __init__(self, tokens: List[Token]):
+    def __init__(self, tokens: List[Token], enable_semantic=True):
         self.tokens = list(tokens)
         self.pos = 0
+        self.enable_semantic = enable_semantic
+        
+        # Análise Semântica
+        self.symbol_table = SymbolTable()
+        self.semantic_errors = []
+        self.current_function = None
 
     # ======== Funções utilitárias ========
     def peek(self):
@@ -102,18 +108,18 @@ class Parser:
             return True
         return False
     
-    """Adiciona erro semântico à lista"""
     def add_semantic_error(self, message: str):
+        """Adiciona erro semântico à lista"""
         if self.enable_semantic:
             self.semantic_errors.append(message)
     
-    """Verifica se há erros semânticos e lança exceção"""
     def check_semantic_errors(self):
+        """Verifica se há erros semânticos e lança exceção"""
         if self.enable_semantic and self.semantic_errors:
             error_msg = "\n".join(self.semantic_errors)
             raise SemanticError(f"Erros semânticos encontrados:\n{error_msg}")
 
- # ======== Verificações Semânticas ========
+    # ======== Verificações Semânticas ========
     
     def types_compatible(self, type1: str, type2: str) -> bool:
         """Verifica se dois tipos são compatíveis"""
@@ -135,8 +141,9 @@ class Parser:
         base1 = self.symbol_table.resolve_type(type1)
         base2 = self.symbol_table.resolve_type(type2)
         return base1.lower() == base2.lower()
-    """Infere o tipo de uma expressão"""
+
     def infer_expression_type(self, node: ASTNode) -> str:
+        """Infere o tipo de uma expressão"""
         if isinstance(node, Num):
             return 'integer' if isinstance(node.value, int) else 'real'
         elif isinstance(node, String):
@@ -153,8 +160,8 @@ class Parser:
             return self.infer_call_type(node)
         return 'unknown'
     
-    """Infere o tipo de uma operação binária"""
     def infer_binop_type(self, node: BinOp) -> str:
+        """Infere o tipo de uma operação binária"""
         op = node.op.lower()
         
         if op == 'not':
@@ -194,8 +201,8 @@ class Parser:
         
         return 'unknown'
     
-    """Infere o tipo de uma chamada de função"""
     def infer_call_type(self, node: Call) -> str:
+        """Infere o tipo de uma chamada de função"""
         func_name_lower = node.name.lower()
         
         if func_name_lower in ['read', 'write']:
@@ -232,7 +239,6 @@ class Parser:
         
         return func_symbol.return_type
 
-
     # ======== Ponto de entrada ========
     def parse(self):
         self.consume('PROGRAM')
@@ -242,7 +248,7 @@ class Parser:
         decls = self.parse_declarations()
         block = self.parse_block()
         self.consume('PONT')
-
+        
         # Verifica erros semânticos ao final
         self.check_semantic_errors()
 
@@ -270,7 +276,7 @@ class Parser:
             self.consume('OP_ASSIGN')
             value = self.parse_expression()
             self.consume('PONT_VIRG')
-
+            
             # Semântica: declara constante
             if self.enable_semantic:
                 expr_type = self.infer_expression_type(value)
@@ -279,7 +285,7 @@ class Parser:
                     self.symbol_table.declare(symbol)
                 except SemanticError as e:
                     self.add_semantic_error(str(e))
-
+            
             consts.append(ConstDecl(name, value))
         return consts
 
@@ -296,7 +302,7 @@ class Parser:
                 raise ParserError(f'Definição de tipo inválida: {self.peek().lexeme}')
 
             self.consume('PONT_VIRG')
-
+            
             # Semântica: verifica tipo base e declara novo tipo
             if self.enable_semantic:
                 base_type = self.symbol_table.lookup(definition)
@@ -308,7 +314,7 @@ class Parser:
                         self.symbol_table.declare(symbol)
                     except SemanticError as e:
                         self.add_semantic_error(str(e))
-                        
+            
             types.append(TypeDecl(name, definition))
         return types
 
@@ -327,9 +333,22 @@ class Parser:
             else:
                 raise ParserError(f'Tipo inválido: {self.peek().lexeme}')
             self.consume('PONT_VIRG')
+            
+            # Semântica: verifica tipo e declara variáveis
+            if self.enable_semantic:
+                type_symbol = self.symbol_table.lookup(type_tok)
+                if not type_symbol or type_symbol.kind != 'type':
+                    self.add_semantic_error(f"Erro: Tipo '{type_tok}' não foi declarado")
+                else:
+                    for var_name in names:
+                        symbol = Symbol(var_name, type_tok, 'var', self.symbol_table.current_level)
+                        try:
+                            self.symbol_table.declare(symbol)
+                        except SemanticError as e:
+                            self.add_semantic_error(str(e))
+            
             vars.append(VarDecl(names, type_tok))
         return vars
-    # Semântica: verifica tipo e declara variáveis
 
     def parse_function_section(self):
         self.consume('FUNCTION')
@@ -345,13 +364,57 @@ class Parser:
         self.consume('DOIS_PONT')
         return_type = self.consume().lexeme
         self.consume('PONT_VIRG')
+        
+        # Semântica: declara função no escopo atual
+        if self.enable_semantic:
+            return_type_symbol = self.symbol_table.lookup(return_type)
+            if not return_type_symbol or return_type_symbol.kind != 'type':
+                self.add_semantic_error(f"Erro: Tipo de retorno '{return_type}' não foi declarado")
+            
+            func_symbol = Symbol(name, return_type, 'function', self.symbol_table.current_level)
+            func_symbol.return_type = return_type
+            
+            for param in params:
+                for param_name in param.names:
+                    func_symbol.params.append((param_name, param.type_name))
+            
+            try:
+                self.symbol_table.declare(func_symbol)
+            except SemanticError as e:
+                self.add_semantic_error(str(e))
 
         local_vars = []
+        
+        # Entra no escopo da função
+        if self.enable_semantic:
+            self.symbol_table.enter_scope()
+            self.current_function = name
+            
+            # Declara parâmetros no escopo da função
+            for param in params:
+                param_type_symbol = self.symbol_table.lookup(param.type_name)
+                if not param_type_symbol or param_type_symbol.kind != 'type':
+                    self.add_semantic_error(f"Erro: Tipo '{param.type_name}' não foi declarado")
+                else:
+                    for param_name in param.names:
+                        param_symbol = Symbol(param_name, param.type_name, 'param', 
+                                            self.symbol_table.current_level)
+                        try:
+                            self.symbol_table.declare(param_symbol)
+                        except SemanticError as e:
+                            self.add_semantic_error(str(e))
+        
         if self.match('VAR'):
             local_vars = self.parse_var_section()
 
         block = self.parse_block()
         self.consume('PONT_VIRG')
+        
+        # Sai do escopo da função
+        if self.enable_semantic:
+            self.symbol_table.exit_scope()
+            self.current_function = None
+        
         return [FunctionDecl(name, params, return_type, local_vars, block)]
 
     def parse_param(self):
@@ -402,11 +465,38 @@ class Parser:
         var_name = self.consume('ID').lexeme
         self.consume('OP_ASSIGN')
         expr = self.parse_expression()
+        
+        # Semântica: verifica atribuição
+        if self.enable_semantic:
+            var_symbol = self.symbol_table.lookup(var_name)
+            if not var_symbol:
+                self.add_semantic_error(f"Erro: Variável '{var_name}' não foi declarada")
+            elif var_symbol.kind == 'const':
+                self.add_semantic_error(
+                    f"Erro: Não é possível atribuir valor a constante '{var_name}'"
+                )
+            else:
+                expr_type = self.infer_expression_type(expr)
+                if not self.types_compatible(var_symbol.symbol_type, expr_type):
+                    self.add_semantic_error(
+                        f"Erro: Atribuição incompatível. '{var_name}' é do tipo "
+                        f"'{var_symbol.symbol_type}', mas expressão é do tipo '{expr_type}'"
+                    )
+        
         return Assign(Var(var_name), expr)
 
     def parse_if(self):
         self.consume('IF')
         cond = self.parse_expression()
+        
+        # Semântica: verifica condição
+        if self.enable_semantic:
+            cond_type = self.infer_expression_type(cond)
+            if cond_type != 'boolean':
+                self.add_semantic_error(
+                    f"Erro: Condição do 'if' deve ser booleana, mas é '{cond_type}'"
+                )
+        
         self.consume('THEN')
         then_stmt = self.parse_statement()
         else_stmt = None
@@ -418,6 +508,15 @@ class Parser:
     def parse_while(self):
         self.consume('WHILE')
         cond = self.parse_expression()
+        
+        # Semântica: verifica condição
+        if self.enable_semantic:
+            cond_type = self.infer_expression_type(cond)
+            if cond_type != 'boolean':
+                self.add_semantic_error(
+                    f"Erro: Condição do 'while' deve ser booleana, mas é '{cond_type}'"
+                )
+        
         self.consume('DO')
         body = self.parse_statement()
         return While(cond, body)
@@ -435,7 +534,14 @@ class Parser:
                 self.consume('VIRG')
                 args.append(self.parse_expression())
         self.consume('FECHA_PARENT')
-        return Call(name, args)
+        
+        call_node = Call(name, args)
+        
+        # Semântica: verifica chamada
+        if self.enable_semantic:
+            self.infer_call_type(call_node)
+        
+        return call_node
 
     # ======== Expressões ========
     def parse_expression(self):
@@ -513,4 +619,11 @@ class Parser:
                 self.consume('VIRG')
                 args.append(self.parse_expression())
         self.consume('FECHA_PARENT')
-        return Call(name, args)
+        
+        call_node = Call(name, args)
+        
+        # Semântica: verifica chamada
+        if self.enable_semantic:
+            self.infer_call_type(call_node)
+        
+        return call_node
