@@ -1,13 +1,14 @@
 {
   "type": "Program",
-  "name": "exemplo_controle",
+  "name": "exemplo_simples",
   "decls": [
     {
       "type": "VarDecl",
       "names": [
-        "i",
-        "soma",
-        "n"
+        "A",
+        "B",
+        "C",
+        "resultado"
       ],
       "type_name": "integer"
     }
@@ -19,7 +20,18 @@
         "type": "Assign",
         "target": {
           "type": "Var",
-          "name": "n"
+          "name": "A"
+        },
+        "value": {
+          "type": "Num",
+          "value": 5
+        }
+      },
+      {
+        "type": "Assign",
+        "target": {
+          "type": "Var",
+          "name": "B"
         },
         "value": {
           "type": "Num",
@@ -30,125 +42,39 @@
         "type": "Assign",
         "target": {
           "type": "Var",
-          "name": "soma"
+          "name": "C"
         },
         "value": {
           "type": "Num",
-          "value": 0
+          "value": 15
         }
       },
       {
         "type": "Assign",
         "target": {
           "type": "Var",
-          "name": "i"
+          "name": "resultado"
         },
         "value": {
-          "type": "Num",
-          "value": 1
-        }
-      },
-      {
-        "type": "While",
-        "condition": {
           "type": "BinOp",
-          "op": "<",
+          "op": "-",
           "left": {
-            "type": "Var",
-            "name": "i"
+            "type": "BinOp",
+            "op": "/",
+            "left": {
+              "type": "Var",
+              "name": "A"
+            },
+            "right": {
+              "type": "Var",
+              "name": "B"
+            }
           },
           "right": {
             "type": "Var",
-            "name": "n"
+            "name": "C"
           }
-        },
-        "body": {
-          "type": "Compound",
-          "statements": [
-            {
-              "type": "If",
-              "condition": {
-                "type": "BinOp",
-                "op": ">",
-                "left": {
-                  "type": "Var",
-                  "name": "i"
-                },
-                "right": {
-                  "type": "Num",
-                  "value": 5
-                }
-              },
-              "then_branch": {
-                "type": "Assign",
-                "target": {
-                  "type": "Var",
-                  "name": "soma"
-                },
-                "value": {
-                  "type": "BinOp",
-                  "op": "+",
-                  "left": {
-                    "type": "Var",
-                    "name": "soma"
-                  },
-                  "right": {
-                    "type": "Var",
-                    "name": "i"
-                  }
-                }
-              },
-              "else_branch": {
-                "type": "Assign",
-                "target": {
-                  "type": "Var",
-                  "name": "soma"
-                },
-                "value": {
-                  "type": "BinOp",
-                  "op": "+",
-                  "left": {
-                    "type": "Var",
-                    "name": "soma"
-                  },
-                  "right": {
-                    "type": "Num",
-                    "value": 1
-                  }
-                }
-              }
-            },
-            {
-              "type": "Assign",
-              "target": {
-                "type": "Var",
-                "name": "i"
-              },
-              "value": {
-                "type": "BinOp",
-                "op": "+",
-                "left": {
-                  "type": "Var",
-                  "name": "i"
-                },
-                "right": {
-                  "type": "Num",
-                  "value": 1
-                }
-              }
-            }
-          ]
         }
-      },
-      {
-        "type": "Call",
-        "name": "write",
-        "args": [
-          {
-            "type": "Var",
-            "name": "soma"
-          }
-        ]
       }
     ]
   }
