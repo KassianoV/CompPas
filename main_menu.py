@@ -1,7 +1,4 @@
 """
-Compilador Pascal Simplificado - Main Atualizado
-Inclui geração de código intermediário (TAC)
-
 Autores: Kassiano Vieira e Claudio Nunes
 """
 

@@ -4,18 +4,6 @@
 > **Autores:** Kassiano Vieira e Claudio Nunes
 > **Data:** Dezembro 2025
 
-## 📑 Índice Rápido
-
-- [ Resumo do Projeto](#-resumo-do-projeto)
-- [ Como Executar](#-como-executar)
-- [ Guia Completo de Uso](#-guia-completo-de-uso)
-  - [Exemplo 1: Processo Completo](#exemplo-1-processo-completo-passo-a-passo)
-  - [Exemplo 2: Gerando a Árvore AST 🌳](#exemplo-2-gerando-e-visualizando-a-árvore-ast-)
-  - [Exemplo 3: Otimização de Código ✨](#exemplo-3-otimização-de-código-)
-- [ Características Principais](#-características-principais)
-- [ Arquivos Gerados](#-arquivos-gerados)
-- [ Dicas Rápidas](#-dicas-rápidas-de-uso)
-
 ## 📋 Resumo do Projeto
 
 Este projeto implementa um compilador completo para uma versão simplificada da linguagem Pascal, incluindo:
@@ -41,9 +29,9 @@ Este projeto implementa um compilador completo para uma versão simplificada da 
 - **`ast_exporter.py`** - Exportador de AST (JSON/DOT)
 - **`ast_to_png.py`** - Conversor de AST para PNG
 - **`tac_generator.py`** - Gerador de Código Intermediário (TAC)
-- **`optimizer.py`** - ✨ **NOVO!** Otimizador de Código TAC
+- **`optimizer.py`** - Otimizador de Código TAC
 - **`test_optimizer.py`** - Testes do otimizador
-- **`main_completo.py`** - Interface principal atualizada
+- **`main_menu.py`** - Interface principal atualizada
 
 ### 🧪 Exemplos de Teste
 - **`exemplo.pas`** / **`exemplo1.pas`** - Programa básico com expressões
@@ -63,7 +51,7 @@ Este projeto implementa um compilador completo para uma versão simplificada da 
 #### 2️⃣ Executar o Compilador
 ```bash
 # Execute o compilador interativo
-python main_completo.py
+python main_menu.py
 ```
 
 #### 3️⃣ Usar o Menu Interativo
@@ -393,7 +381,7 @@ export/
 # Mac: brew install graphviz
 
 # Gere a imagem da árvore
-dot -Tpng export/ast.dot -o arvore_ast.png
+dot -Tpng export/ast.dot -o arvore_exemplo.png
 ```
 
 ## 🔍 Testes Incluídos
@@ -533,11 +521,11 @@ Este é um projeto acadêmico desenvolvido para fins educacionais.
 - [x] Suporte a funções
 
 ### Otimização de Código ✅ (Extra)
-- [x] Constant Folding
-- [x] Constant Propagation
-- [x] Copy Propagation
-- [x] Dead Code Elimination
-- [x] Common Subexpression Elimination (CSE)
+- [x] Simplificação de Constantes
+- [x] Propagação de Constantes
+- [x] Propagação de Cópias
+- [x] Eliminação de Código Morto
+- [x] Eliminação de Subexpressões Comuns (ESC)
 - [x] Comparação visual de código
 - [x] Exportação de código otimizado
 
